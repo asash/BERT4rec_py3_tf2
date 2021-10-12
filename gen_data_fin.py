@@ -15,50 +15,27 @@ from util import *
 from vocab import *
 import pickle
 import multiprocessing
+from argparse import ArgumentParser
 import time
 
 
 random_seed = 12345
 short_seq_prob = 0  # Probability of creating sequences which are shorter than the maximum length。
 
-flags = tf.flags
-FLAGS = flags.FLAGS
+parser = ArgumentParser()
 
-flags.DEFINE_string("signature", 'default', "signature_name")
+parser.add_argument("--signature", default="default", help="signature_name", type=str)
+parser.add_argument("--pool_size", default=10, help="multiprocesses pool size.", type=int)
+parser.add_argument("--max_seq_length", default=200, help="max sequence length", type=int)
+parser.add_argument("--max_predictions_per_seq", default=20, help="max_predictions_per_seq.", type=int)
+parser.add_argument("--masked_lm_prob", default=0.15, help="Masked LM probability.", type=float)
+parser.add_argument("--mask_prob", default=1.0, help="mask probability", type=float)
+parser.add_argument("--dupe_factor", default=10, help="Number of times to duplicate the input data (with different masks).", type=int)
+parser.add_argument("--prop_sliding_window", default=0.1, help="sliding window step size.", type=float)
+parser.add_argument("--data_dir", default='./data/', help="data dir.", type=str)
+parser.add_argument("--dataset_name", default='./ml-1m/', help="dataset name.", type=str)
 
-flags.DEFINE_integer(
-    "pool_size", 10,
-    "multiprocesses pool size.")
-
-flags.DEFINE_integer(
-    "max_seq_length", 200,
-    "max sequence length.")
-
-flags.DEFINE_integer(
-    "max_predictions_per_seq", 20,
-    "max_predictions_per_seq.")
-
-flags.DEFINE_float(
-    "masked_lm_prob", 0.15,
-    "Masked LM probability.")
-
-flags.DEFINE_float(
-    "mask_prob", 1.0,
-    "mask probabaility")
-
-flags.DEFINE_integer(
-    "dupe_factor", 10,
-    "Number of times to duplicate the input data (with different masks).")
-
-flags.DEFINE_float("prop_sliding_window", 0.1, "sliding window step size.")
-    
-flags.DEFINE_string(
-    "data_dir", './data/',
-    "data dir.")
-
-flags.DEFINE_string(
-    "dataset_name", 'ml-1m',
-    "dataset name.")
+FLAGS = parser.parse_args()
 
 
 def printable_text(text):
@@ -135,7 +112,7 @@ def write_instance_to_example_files(instances, max_seq_length,
     """Create TF example files from `TrainingInstance`s."""
     writers = []
     for output_file in output_files:
-        writers.append(tf.python_io.TFRecordWriter(output_file))
+        writers.append(tf.io.TFRecordWriter(output_file))
 
     writer_index = 0
 
@@ -181,8 +158,8 @@ def write_instance_to_example_files(instances, max_seq_length,
         total_written += 1
 
         if inst_index < 20:
-            tf.logging.info("*** Example ***")
-            tf.logging.info("tokens: %s" % " ".join(
+            tf.compat.v1.logging.info("*** Example ***")
+            tf.compat.v1.logging.info("tokens: %s" % " ".join(
                 [printable_text(x) for x in instance.tokens]))
 
             for feature_name in features.keys():
@@ -192,14 +169,14 @@ def write_instance_to_example_files(instances, max_seq_length,
                     values = feature.int64_list.value
                 elif feature.float_list.value:
                     values = feature.float_list.value
-                tf.logging.info("%s: %s" % (feature_name,
+                tf.compat.v1.logging.info("%s: %s" % (feature_name,
                                             " ".join([str(x)
                                                       for x in values])))
 
     for writer in writers:
         writer.close()
 
-    tf.logging.info("Wrote %d total instances", total_written)
+    tf.compat.v1.logging.info("Wrote %d total instances", total_written)
 
 
 def create_int_feature(values):
@@ -251,7 +228,7 @@ def create_training_instances(all_documents_raw,
             if len(item_seq) <= max_num_tokens:
                 all_documents[user] = [item_seq]
             else:
-                beg_idx = range(len(item_seq)-max_num_tokens, 0, -sliding_step)
+                beg_idx = list(range(len(item_seq)-max_num_tokens, 0, -sliding_step))
                 beg_idx.append(0)
                 all_documents[user] = [item_seq[i:i + max_num_tokens] for i in beg_idx[::-1]]
 
@@ -263,7 +240,7 @@ def create_training_instances(all_documents_raw,
                     all_documents, user, max_seq_length))
         print("num of instance:{}".format(len(instances)))
     else:
-        start_time = time.clock()
+        start_time = time.process_time()
         pool = multiprocessing.Pool(processes=pool_size)
         instances = []
         print("document num: {}".format(len(all_documents)))
@@ -287,7 +264,7 @@ def create_training_instances(all_documents_raw,
                     all_documents, user, max_seq_length, short_seq_prob,
                     masked_lm_prob, max_predictions_per_seq, vocab, rng))
 
-        print("num of instance:{}; time:{}".format(len(instances), time.clock() - start_time))
+        print("num of instance:{}; time:{}".format(len(instances), time.process_time() - start_time))
     rng.shuffle(instances)
     return instances
 
@@ -296,13 +273,13 @@ def create_instances_threading(all_documents, user, max_seq_length, short_seq_pr
                                masked_lm_prob, max_predictions_per_seq, vocab, rng,
                                mask_prob, step):
     cnt = 0;
-    start_time = time.clock()
+    start_time = time.process_time()
     instances = []
     for user in all_documents:
         cnt += 1;
         if cnt % 1000 == 0:
-            print("step: {}, name: {}, step: {}, time: {}".format(step, multiprocessing.current_process().name, cnt, time.clock()-start_time))
-            start_time = time.clock()
+            print("step: {}, name: {}, step: {}, time: {}".format(step, multiprocessing.current_process().name, cnt, time.process_time()-start_time))
+            start_time = time.process_time()
         instances.extend(create_instances_from_document_train(
             all_documents, user, max_seq_length, short_seq_prob,
             masked_lm_prob, max_predictions_per_seq, vocab, rng,
@@ -487,8 +464,8 @@ def gen_samples(data,
         max_predictions_per_seq, rng, vocab, mask_prob, prop_sliding_window,
         pool_size, force_last)
 
-    tf.logging.info("*** Writing to output files ***")
-    tf.logging.info("  %s", output_filename)
+    tf.compat.v1.logging.info("*** Writing to output files ***")
+    tf.compat.v1.logging.info("  %s", output_filename)
 
     write_instance_to_example_files(instances, max_seq_length,
                                     max_predictions_per_seq, vocab,
@@ -496,7 +473,7 @@ def gen_samples(data,
 
 
 def main():
-    tf.logging.set_verbosity(tf.logging.DEBUG)
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.DEBUG)
     
     max_seq_length = FLAGS.max_seq_length
     max_predictions_per_seq = FLAGS.max_predictions_per_seq
@@ -509,7 +486,7 @@ def main():
     output_dir = FLAGS.data_dir
     dataset_name = FLAGS.dataset_name
     version_id = FLAGS.signature
-    print version_id
+    print(version_id)
 
     if not os.path.isdir(output_dir):
         print(output_dir + ' is not exist')

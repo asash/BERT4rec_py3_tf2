@@ -5,8 +5,8 @@
 
 **Requirements**
 
-* python 2.7+
-* Tensorflow 1.12 (GPU version)
+* python 3.9
+* Tensorflow 2.6.0 (GPU version)
 * CUDA compatible with TF 1.12
 
 **Run**

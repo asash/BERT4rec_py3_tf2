@@ -1,4 +1,4 @@
-CKPT_DIR="/path/BERT4Rec"
+CKPT_DIR="/tmp/BERT4rec"
 dataset_name="ml-1m"
 max_seq_length=200
 masked_lm_prob=0.2
@@ -26,7 +26,7 @@ python -u gen_data_fin.py \
     --prop_sliding_window=${prop_sliding_window} \
     --signature=${signature} \
     --pool_size=${pool_size} \
-
+    
 CUDA_VISIBLE_DEVICES=0 python -u run.py \
     --train_input_file=./data/${dataset_name}${signature}.train.tfrecord \
     --test_input_file=./data/${dataset_name}${signature}.test.tfrecord \

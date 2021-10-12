@@ -125,7 +125,7 @@ def write_instance_to_example_files(instances, max_seq_length,
     """Create TF example files from `TrainingInstance`s."""
     writers = []
     for output_file in output_files:
-        writers.append(tf.python_io.TFRecordWriter(output_file))
+        writers.append(tf.io.TFRecordWriter(output_file))
 
     writer_index = 0
 
@@ -172,8 +172,8 @@ def write_instance_to_example_files(instances, max_seq_length,
         total_written += 1
 
         if inst_index < 20:
-            tf.logging.info("*** Example ***")
-            tf.logging.info("tokens: %s" % " ".join(
+            tf.compat.v1.logging.info("*** Example ***")
+            tf.compat.v1.logging.info("tokens: %s" % " ".join(
                 [printable_text(x) for x in instance.tokens]))
 
             for feature_name in features.keys():
@@ -183,14 +183,14 @@ def write_instance_to_example_files(instances, max_seq_length,
                     values = feature.int64_list.value
                 elif feature.float_list.value:
                     values = feature.float_list.value
-                tf.logging.info("%s: %s" % (feature_name,
+                tf.compat.v1.logging.info("%s: %s" % (feature_name,
                                             " ".join([str(x)
                                                       for x in values])))
 
     for writer in writers:
         writer.close()
 
-    tf.logging.info("Wrote %d total instances", total_written)
+    tf.compat.v1.logging.info("Wrote %d total instances", total_written)
 
 
 def create_int_feature(values):
@@ -267,7 +267,7 @@ def create_training_instances(all_documents_raw,
             for user in all_documents:
                 cnt += 1
                 if cnt % 10000 == 0:
-                     tf.logging.info("Writing example %d of %d" % (cnt, tot_cnt))
+                     tf.compat.v1.logging.info("Writing example %d of %d" % (cnt, tot_cnt))
                         
                 instances.extend(
                     create_instances_from_document_force_no_b(
@@ -455,8 +455,8 @@ def gen_samples(data,
         max_predictions_per_seq, rng, vocab, mask_prob, prop_sliding_window,
         force_last)
 
-    tf.logging.info("*** Writing to output files ***")
-    tf.logging.info("  %s", output_filename)
+    tf.compat.v1.logging.info("*** Writing to output files ***")
+    tf.compat.v1.logging.info("  %s", output_filename)
 
     write_instance_to_example_files(instances, max_seq_length,
                                     max_predictions_per_seq, vocab,
@@ -464,7 +464,7 @@ def gen_samples(data,
 
 
 def main():
-    tf.logging.set_verbosity(tf.logging.DEBUG)
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.DEBUG)
     
     max_seq_length = FLAGS.max_seq_length
     max_predictions_per_seq = FLAGS.max_predictions_per_seq
