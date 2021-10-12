@@ -1,4 +1,5 @@
 # BERT4Rec
+This is a version of [https://github.com/FeiSun/BERT4Rec](https://github.com/FeiSun/BERT4Rec) ported to Python3 and Tensorflow2. Tested with python3.9 and tesorflow 2.6.0, but likely to work with other python3 and tensorflow 2 versions
 
 
 ## Usage
