@@ -8,7 +8,7 @@ This is a version of [https://github.com/FeiSun/BERT4Rec](https://github.com/Fei
 
 * python 3.9
 * Tensorflow 2.6.0 (GPU version)
-* CUDA compatible with TF 1.12
+* CUDA compatible with TF 2.6.0 
 
 **Run**
 
