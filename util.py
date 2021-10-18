@@ -1,8 +1,4 @@
 from __future__ import print_function
-import sys
-import copy
-import random
-import numpy as np
 from collections import defaultdict
 
 
@@ -11,7 +7,6 @@ def data_partition(fname):
     itemnum = 0
     User = defaultdict(list)
     user_train = {}
-    user_valid = {}
     user_test = {}
     # assume user/item index starting from 1
     f = open(fname, 'r')
@@ -24,16 +19,7 @@ def data_partition(fname):
         User[u].append(i)
 
     for user in User:
-        nfeedback = len(User[user])
-        if nfeedback < 3:
-            user_train[user] = User[user]
-            user_valid[user] = []
-            user_test[user] = []
-        else:
-            user_train[user] = User[user][:-2]
-            user_valid[user] = []
-            user_valid[user].append(User[user][-2])
-            user_test[user] = []
-            user_test[user].append(User[user][-1])
-    return [user_train, user_valid, user_test, usernum, itemnum]
+        user_train[user] = User[user][:-1]
+        user_test[user] = [User[user][-1]]
+    return [user_train, user_test, usernum, itemnum]
 

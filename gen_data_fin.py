@@ -1,15 +1,9 @@
 # -*- coding: UTF-8 -*-
 import os
-import codecs
-
 import collections
 import random
 
-import sys
-
 import tensorflow as tf
-
-import six
 
 from util import *
 from vocab import *
@@ -39,47 +33,12 @@ FLAGS = parser.parse_args()
 
 
 def printable_text(text):
-    """Returns text encoded in a way suitable for print or `tf.logging`."""
-
-    # These functions want `str` for both Python2 and Python3, but in one case
-    # it's a Unicode string and in the other it's a byte string.
-    if six.PY3:
-        if isinstance(text, str):
-            return text
-        elif isinstance(text, bytes):
-            return text.decode("utf-8", "ignore")
-        else:
-            raise ValueError("Unsupported string type: %s" % (type(text)))
-    elif six.PY2:
-        if isinstance(text, str):
-            return text
-        elif isinstance(text, unicode):
-            return text.encode("utf-8")
-        else:
-            raise ValueError("Unsupported string type: %s" % (type(text)))
+    if isinstance(text, str):
+        return text
+    elif isinstance(text, bytes):
+        return text.decode("utf-8", "ignore")
     else:
-        raise ValueError("Not running on Python2 or Python 3?")
-
-
-def convert_to_unicode(text):
-    """Converts `text` to Unicode (if it's not already), assuming utf-8 input."""
-    if six.PY3:
-        if isinstance(text, str):
-            return text
-        elif isinstance(text, bytes):
-            return text.decode("utf-8", "ignore")
-        else:
-            raise ValueError("Unsupported string type: %s" % (type(text)))
-    elif six.PY2:
-        if isinstance(text, str):
-            return text.decode("utf-8", "ignore")
-        elif isinstance(text, unicode):
-            return text
-        else:
-            raise ValueError("Unsupported string type: %s" % (type(text)))
-    else:
-        raise ValueError("Not running on Python2 or Python 3?")
-
+        raise ValueError("Unsupported string type: %s" % (type(text)))
 
 class TrainingInstance(object):
     """A single training instance (sentence pair)."""
@@ -191,7 +150,7 @@ def create_float_feature(values):
     return feature
 
 
-def create_training_instances(all_documents_raw,
+def create_training_instances(all_users_raw,
                               max_seq_length,
                               dupe_factor,
                               short_seq_prob,
@@ -208,7 +167,7 @@ def create_training_instances(all_documents_raw,
 
     if force_last:
         max_num_tokens = max_seq_length
-        for user, item_seq in all_documents_raw.items():
+        for user, item_seq in all_users_raw.items():
             if len(item_seq) == 0:
                 print("got empty seq:" + user)
                 continue
@@ -219,7 +178,7 @@ def create_training_instances(all_documents_raw,
         sliding_step = (int)(
             prop_sliding_window *
             max_num_tokens) if prop_sliding_window != -1.0 else max_num_tokens
-        for user, item_seq in all_documents_raw.items():
+        for user, item_seq in all_users_raw.items():
             if len(item_seq) == 0:
                 print("got empty seq:" + user)
                 continue
@@ -272,11 +231,11 @@ def create_training_instances(all_documents_raw,
 def create_instances_threading(all_documents, user, max_seq_length, short_seq_prob,
                                masked_lm_prob, max_predictions_per_seq, vocab, rng,
                                mask_prob, step):
-    cnt = 0;
+    cnt = 0
     start_time = time.process_time()
     instances = []
     for user in all_documents:
-        cnt += 1;
+        cnt += 1
         if cnt % 1000 == 0:
             print("step: {}, name: {}, step: {}, time: {}".format(step, multiprocessing.current_process().name, cnt, time.process_time()-start_time))
             start_time = time.process_time()
@@ -494,7 +453,7 @@ def main():
         exit(1)
 
     dataset = data_partition(output_dir+dataset_name+'.txt')
-    [user_train, user_valid, user_test, usernum, itemnum] = dataset
+    [user_train, user_test, usernum, itemnum] = dataset
     cc = 0.0
     max_len = 0
     min_len = 100000
@@ -505,22 +464,7 @@ def main():
 
     print('average sequence length: %.2f' % (cc / len(user_train)))
     print('max:{}, min:{}'.format(max_len, min_len))
-
-    print('len_train:{}, len_valid:{}, len_test:{}, usernum:{}, itemnum:{}'.
-        format(
-        len(user_train),
-        len(user_valid), len(user_test), usernum, itemnum))
-
-    for idx, u in enumerate(user_train):
-        if idx < 10:
-            print(user_train[u])
-            print(user_valid[u])
-            print(user_test[u])
-
-    # put validate into train
-    for u in user_train:
-        if u in user_valid:
-            user_train[u].extend(user_valid[u])
+    print(f"len_train:{len(user_train)}, len_test:{len(user_test)}, usernum:{usernum}, itemnum:{itemnum}")
 
     # get the max index of the data
     user_train_data = {
