@@ -5,8 +5,8 @@ import random
 
 import tensorflow as tf
 
-from .util import *
-from .vocab import *
+from BERT4rec.util import *
+from BERT4rec.vocab import *
 import pickle
 import multiprocessing
 from argparse import ArgumentParser
@@ -14,7 +14,6 @@ import time
 
 
 random_seed = 12345
-short_seq_prob = 0  # Probability of creating sequences which are shorter than the maximum length。
 
 parser = ArgumentParser()
 
@@ -150,18 +149,8 @@ def create_float_feature(values):
     return feature
 
 
-def create_training_instances(all_users_raw,
-                              max_seq_length,
-                              dupe_factor,
-                              short_seq_prob,
-                              masked_lm_prob,
-                              max_predictions_per_seq,
-                              rng,
-                              vocab,
-                              mask_prob,
-                              prop_sliding_window,
-                              pool_size,
-                              force_last=False):
+def create_training_instances(all_users_raw, max_seq_length, dupe_factor, masked_lm_prob, max_predictions_per_seq, rng,
+                              vocab, mask_prob, prop_sliding_window, pool_size, force_last=False):
     """Create `TrainingInstance`s from raw text."""
     all_documents = {}
 
@@ -211,8 +200,8 @@ def create_training_instances(all_users_raw,
         for step in range(dupe_factor):
             pool.apply_async(
                 create_instances_threading, args=(
-                    all_documents, user, max_seq_length, short_seq_prob,
-                    masked_lm_prob, max_predictions_per_seq, vocab, random.Random(random.randint(1,10000)),
+                    all_documents, max_seq_length, masked_lm_prob,
+                    max_predictions_per_seq, vocab, random.Random(random.randint(1,10000)),
                     mask_prob, step), callback=log_result)
         pool.close()
         pool.join()
@@ -226,8 +215,7 @@ def create_training_instances(all_users_raw,
     return instances
 
 
-def create_instances_threading(all_documents, user, max_seq_length, short_seq_prob,
-                               masked_lm_prob, max_predictions_per_seq, vocab, rng,
+def create_instances_threading(all_documents, max_seq_length, masked_lm_prob, max_predictions_per_seq, vocab, rng,
                                mask_prob, step):
     cnt = 0
     start_time = time.process_time()
@@ -237,10 +225,8 @@ def create_instances_threading(all_documents, user, max_seq_length, short_seq_pr
         if cnt % 1000 == 0:
             print("step: {}, name: {}, step: {}, time: {}".format(step, multiprocessing.current_process().name, cnt, time.process_time()-start_time))
             start_time = time.process_time()
-        instances.extend(create_instances_from_document_train(
-            all_documents, user, max_seq_length, short_seq_prob,
-            masked_lm_prob, max_predictions_per_seq, vocab, rng,
-            mask_prob))
+        instances.extend(create_instances_from_document_train(all_documents, user, max_seq_length, masked_lm_prob,
+                                                              max_predictions_per_seq, vocab, rng, mask_prob))
         
     return instances
 
@@ -291,9 +277,8 @@ def create_instances_from_document_test(all_documents, user, max_seq_length):
     return [instance]
 
 
-def create_instances_from_document_train(
-        all_documents, user, max_seq_length, short_seq_prob, masked_lm_prob,
-        max_predictions_per_seq, vocab, rng, mask_prob):
+def create_instances_from_document_train(all_documents, user, max_seq_length, masked_lm_prob, max_predictions_per_seq,
+                                         vocab, rng, mask_prob):
     """Creates `TrainingInstance`s for a single document."""
     document = all_documents[user]
 
@@ -399,24 +384,11 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
     return (output_tokens, masked_lm_positions, masked_lm_labels)
 
 
-def gen_samples(data,
-                output_filename,
-                rng,
-                vocab,
-                max_seq_length,
-                dupe_factor,
-                short_seq_prob,
-                mask_prob,
-                masked_lm_prob,
-                max_predictions_per_seq,
-                prop_sliding_window,
-                pool_size,
-                force_last=False):
+def gen_samples(data, output_filename, rng, vocab, max_seq_length, dupe_factor, mask_prob, masked_lm_prob,
+                max_predictions_per_seq, prop_sliding_window, pool_size, force_last=False):
     # create train
-    instances = create_training_instances(
-        data, max_seq_length, dupe_factor, short_seq_prob, masked_lm_prob,
-        max_predictions_per_seq, rng, vocab, mask_prob, prop_sliding_window,
-        pool_size, force_last)
+    instances = create_training_instances(data, max_seq_length, dupe_factor, masked_lm_prob, max_predictions_per_seq,
+                                          rng, vocab, mask_prob, prop_sliding_window, pool_size, force_last)
 
     tf.compat.v1.logging.info("*** Writing to output files ***")
     tf.compat.v1.logging.info("  %s", output_filename)
@@ -481,38 +453,14 @@ def main():
 
     print('begin to generate train')
     output_filename = output_dir + dataset_name + version_id + '.train.tfrecord'
-    gen_samples(
-        user_train_data,
-        output_filename,
-        rng,
-        vocab,
-        max_seq_length,
-        dupe_factor,
-        short_seq_prob,
-        mask_prob,
-        masked_lm_prob,
-        max_predictions_per_seq,
-        prop_sliding_window,
-        pool_size,
-        force_last=False)
+    gen_samples(user_train_data, output_filename, rng, vocab, max_seq_length, dupe_factor, mask_prob, masked_lm_prob,
+                max_predictions_per_seq, prop_sliding_window, pool_size, force_last=False)
     print('train:{}'.format(output_filename))
 
     print('begin to generate test')
     output_filename = output_dir + dataset_name + version_id + '.test.tfrecord'
-    gen_samples(
-        user_test_data,
-        output_filename,
-        rng,
-        vocab,
-        max_seq_length,
-        dupe_factor,
-        short_seq_prob,
-        mask_prob,
-        masked_lm_prob,
-        max_predictions_per_seq,
-        -1.0,
-        pool_size,
-        force_last=True)
+    gen_samples(user_test_data, output_filename, rng, vocab, max_seq_length, dupe_factor, mask_prob, masked_lm_prob,
+                max_predictions_per_seq, -1.0, pool_size, force_last=True)
     print('test:{}'.format(output_filename))
 
     print('vocab_size:{}, user_size:{}, item_size:{}, item_with_other_size:{}'.
