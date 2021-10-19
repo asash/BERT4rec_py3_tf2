@@ -152,67 +152,97 @@ def create_float_feature(values):
 def create_training_instances(all_users_raw, max_seq_length, dupe_factor, masked_lm_prob, max_predictions_per_seq, rng,
                               vocab, mask_prob, prop_sliding_window, pool_size, force_last=False):
     """Create `TrainingInstance`s from raw text."""
-    all_documents = {}
-
-    if force_last:
-        max_num_tokens = max_seq_length
-        for user, item_seq in all_users_raw.items():
-            if len(item_seq) == 0:
-                print("got empty seq:" + user)
-                continue
-            all_documents[user] = [item_seq[-max_num_tokens:]]
-    else:
-        max_num_tokens = max_seq_length  # we need two sentence
-
-        sliding_step = (int)(
-            prop_sliding_window *
-            max_num_tokens) if prop_sliding_window != -1.0 else max_num_tokens
-        for user, item_seq in all_users_raw.items():
-            if len(item_seq) == 0:
-                print("got empty seq:" + user)
-                continue
-
-            #todo: add slide
-            if len(item_seq) <= max_num_tokens:
-                all_documents[user] = [item_seq]
-            else:
-                beg_idx = list(range(len(item_seq)-max_num_tokens, 0, -sliding_step))
-                beg_idx.append(0)
-                all_documents[user] = [item_seq[i:i + max_num_tokens] for i in beg_idx[::-1]]
-
-    instances = []
-    if force_last:
-        for user in all_documents:
-            instances.extend(
-                create_instances_from_document_test(
-                    all_documents, user, max_seq_length))
-        print("num of instance:{}".format(len(instances)))
-    else:
-        start_time = time.process_time()
-        pool = multiprocessing.Pool(processes=pool_size)
-        instances = []
-        print("document num: {}".format(len(all_documents)))
-
-        def log_result(result):
-            print("callback function result type: {}, size: {} ".format(type(result), len(result)))
-            instances.extend(result)
-
-        for step in range(dupe_factor):
-            pool.apply_async(
-                create_instances_threading, args=(
-                    all_documents, max_seq_length, masked_lm_prob,
-                    max_predictions_per_seq, vocab, random.Random(random.randint(1,10000)),
-                    mask_prob, step), callback=log_result)
-        pool.close()
-        pool.join()
-        
-        for user in all_documents:
-            new_instance = mask_last(all_documents, user, max_seq_length)
-            instances.extend(new_instance)
-
-        print("num of instance:{}; time:{}".format(len(instances), time.process_time() - start_time))
+    all_documents = get_training_documents(all_users_raw, force_last, max_seq_length, prop_sliding_window)
+    instances = create_instances(all_documents, dupe_factor, force_last, mask_prob, masked_lm_prob,
+                                 max_predictions_per_seq, max_seq_length, pool_size, vocab)
     rng.shuffle(instances)
     return instances
+
+
+def create_instances(all_documents, dupe_factor, force_last, mask_prob, masked_lm_prob, max_predictions_per_seq,
+                     max_seq_length, pool_size, vocab):
+    instances = []
+    if force_last:
+        instances = create_instances_force_last(all_documents, max_seq_length)
+    else:
+        instances = create_instances_no_force_last(all_documents, dupe_factor, instances, mask_prob, masked_lm_prob,
+                                                   max_predictions_per_seq, max_seq_length, pool_size, vocab)
+    return instances
+
+
+def create_instances_no_force_last(all_documents, dupe_factor, instances, mask_prob, masked_lm_prob, max_predictions_per_seq,
+                                   max_seq_length, pool_size, vocab):
+    start_time = time.process_time()
+    pool = multiprocessing.Pool(processes=pool_size)
+    instances = []
+    print("document num: {}".format(len(all_documents)))
+
+    def log_result(result):
+        print("callback function result type: {}, size: {} ".format(type(result), len(result)))
+        instances.extend(result)
+
+    for step in range(dupe_factor):
+        pool.apply_async(
+            create_instances_threading, args=(
+                all_documents, max_seq_length, masked_lm_prob,
+                max_predictions_per_seq, vocab, random.Random(random.randint(1, 10000)),
+                mask_prob, step), callback=log_result)
+    pool.close()
+    pool.join()
+    for user in all_documents:
+        new_instance = mask_last(all_documents, user, max_seq_length)
+        instances.extend(new_instance)
+    print("num of instance:{}; time:{}".format(len(instances), time.process_time() - start_time))
+    return instances
+
+
+def create_instances_force_last(all_documents, max_seq_length):
+    instances = []
+    for user in all_documents:
+        instances.extend(
+            create_instances_from_document_test(
+                all_documents, user, max_seq_length))
+    print("num of instance:{}".format(len(instances)))
+    return instances
+
+
+def get_training_documents(all_users_raw, force_last, max_seq_length, prop_sliding_window):
+    if force_last:
+        return get_training_documents_force_last(all_users_raw, max_seq_length)
+    else:
+        return get_training_documents_no_force_last(all_users_raw, max_seq_length, prop_sliding_window)
+
+
+def get_training_documents_no_force_last(all_users_raw, max_seq_length, prop_sliding_window):
+    all_documents = {}
+    max_num_tokens = max_seq_length  # we need two sentence
+    sliding_step = (int)(
+        prop_sliding_window *
+        max_num_tokens) if prop_sliding_window != -1.0 else max_num_tokens
+    for user, item_seq in all_users_raw.items():
+        if len(item_seq) == 0:
+            print("got empty seq:" + user)
+            continue
+
+        # todo: add slide
+        if len(item_seq) <= max_num_tokens:
+            all_documents[user] = [item_seq]
+        else:
+            beg_idx = list(range(len(item_seq) - max_num_tokens, 0, -sliding_step))
+            beg_idx.append(0)
+            all_documents[user] = [item_seq[i:i + max_num_tokens] for i in beg_idx[::-1]]
+    return all_documents
+
+
+def get_training_documents_force_last(all_users_raw, max_seq_length):
+    all_documents = {}
+    max_num_tokens = max_seq_length
+    for user, item_seq in all_users_raw.items():
+        if len(item_seq) == 0:
+            print("got empty seq:" + user)
+            continue
+        all_documents[user] = [item_seq[-max_num_tokens:]]
+    return all_documents
 
 
 def create_instances_threading(all_documents, max_seq_length, masked_lm_prob, max_predictions_per_seq, vocab, rng,
@@ -225,7 +255,9 @@ def create_instances_threading(all_documents, max_seq_length, masked_lm_prob, ma
         if cnt % 1000 == 0:
             print("step: {}, name: {}, step: {}, time: {}".format(step, multiprocessing.current_process().name, cnt, time.process_time()-start_time))
             start_time = time.process_time()
-        instances.extend(create_instances_from_document_train(all_documents, user, max_seq_length, masked_lm_prob,
+        document = all_documents[user]
+        info = [int(user.split("_")[1])]
+        instances.extend(create_instances_from_document_train(document, info, max_seq_length, masked_lm_prob,
                                                               max_predictions_per_seq, vocab, rng, mask_prob))
         
     return instances
@@ -277,15 +309,13 @@ def create_instances_from_document_test(all_documents, user, max_seq_length):
     return [instance]
 
 
-def create_instances_from_document_train(all_documents, user, max_seq_length, masked_lm_prob, max_predictions_per_seq,
+def create_instances_from_document_train(document, info, max_seq_length, masked_lm_prob, max_predictions_per_seq,
                                          vocab, rng, mask_prob):
     """Creates `TrainingInstance`s for a single document."""
-    document = all_documents[user]
 
     max_num_tokens = max_seq_length
 
     instances = []
-    info = [int(user.split("_")[1])]
     vocab_items = vocab.get_items()
 
     for tokens in document:
