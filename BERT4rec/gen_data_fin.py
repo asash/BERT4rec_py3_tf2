@@ -64,23 +64,14 @@ class TrainingInstance(object):
         return self.__str__()
 
 
-def write_instance_to_example_files(instances, max_seq_length,
-                                    max_predictions_per_seq, vocab,
-                                    output_files):
-    """Create TF example files from `TrainingInstance`s."""
-    writers = []
-    for output_file in output_files:
-        writers.append(tf.io.TFRecordWriter(output_file))
-
-    writer_index = 0
-
+def write_instance_to_example_file(instances, max_seq_length,
+                                   max_predictions_per_seq, vocab,
+                                   output_file):
+    """Create TF file from `TrainingInstance`s."""
+    writer = tf.io.TFRecordWriter(output_file)
     total_written = 0
     for (inst_index, instance) in enumerate(instances):
-        try:
-            input_ids = vocab.convert_tokens_to_ids(instance.tokens)
-        except:
-            print(instance)
-
+        input_ids = vocab.convert_tokens_to_ids(instance.tokens)
         input_mask = [1] * len(input_ids)
         assert len(input_ids) <= max_seq_length
 
@@ -110,8 +101,7 @@ def write_instance_to_example_files(instances, max_seq_length,
         tf_example = tf.train.Example(
             features=tf.train.Features(feature=features))
 
-        writers[writer_index].write(tf_example.SerializeToString())
-        writer_index = (writer_index + 1) % len(writers)
+        writer.write(tf_example.SerializeToString())
 
         total_written += 1
 
@@ -131,9 +121,7 @@ def write_instance_to_example_files(instances, max_seq_length,
                                             " ".join([str(x)
                                                       for x in values])))
 
-    for writer in writers:
-        writer.close()
-
+    writer.close()
     tf.compat.v1.logging.info("Wrote %d total instances", total_written)
 
 
@@ -423,9 +411,9 @@ def gen_samples(data, output_filename, rng, vocab, max_seq_length, dupe_factor, 
     tf.compat.v1.logging.info("*** Writing to output files ***")
     tf.compat.v1.logging.info("  %s", output_filename)
 
-    write_instance_to_example_files(instances, max_seq_length,
-                                    max_predictions_per_seq, vocab,
-                                    [output_filename])
+    write_instance_to_example_file(instances, max_seq_length,
+                                   max_predictions_per_seq, vocab,
+                                   output_filename)
 
 
 def main():
