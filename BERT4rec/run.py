@@ -18,6 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import json
 import os
 import modeling
 import optimization
@@ -117,8 +118,11 @@ parser.add_argument(
 parser.add_argument("--use_pop_random", default=True, type=bool, help="use pop random negative samples")
 parser.add_argument("--vocab_filename", default=None, type=str, help="vocab filename")
 parser.add_argument("--user_history_filename", default=None, type=str, help="user history filename", required=True)
+parser.add_argument("--save_predictions_file", default=None, type=str, help="save predictions into file")
+parser.add_argument("--predictions_per_user", default=1000, type=int, help="save predictions into file")
 FLAGS=parser.parse_args()
 
+result_predictions = {}
 
 
 class EvalHooks(tf.estimator.SessionRunHook):
@@ -169,19 +173,26 @@ class EvalHooks(tf.estimator.SessionRunHook):
                    self.valid_user))
 
     def before_run(self, run_context):
-        #tf.logging.info('run before run')
-        #print('run before_run')
         variables = tf.compat.v1.get_collection('eval_sp')
         return tf.estimator.SessionRunArgs(variables)
 
     def after_run(self, run_context, run_values):
-        #tf.logging.info('run after run')
-        #print('run after run')
         masked_lm_log_probs, input_ids, masked_lm_ids, info = run_values.results
         masked_lm_log_probs = masked_lm_log_probs.reshape(
             (-1, FLAGS.max_predictions_per_seq, masked_lm_log_probs.shape[1]))
-#         print("loss value:", masked_lm_log_probs.shape, input_ids.shape,
-#               masked_lm_ids.shape, info.shape)
+
+        if (FLAGS.save_predictions_file is not None):
+            for idx in range(len(input_ids)):
+                user_id = f"user_{info[idx][0]}"
+                scores = masked_lm_log_probs[idx, 0]
+                predicted_items = np.argsort(scores)[-FLAGS.predictions_per_user:][::-1]
+                user_recs = []
+                for item_id in predicted_items:
+                    token = self.vocab.convert_ids_to_tokens([item_id])[0]
+                    score = scores[item_id]
+                    user_recs.append((token, float(score)))
+                result_predictions[user_id] =  user_recs
+
 
         for idx in range(len(input_ids)):
             rated = set(input_ids[idx])
@@ -190,8 +201,7 @@ class EvalHooks(tf.estimator.SessionRunHook):
             map(lambda x: rated.add(x),
                 self.user_history["user_" + str(info[idx][0])][0])
             item_idx = [masked_lm_ids[idx][0]]
-            # here we need more consideration
-            masked_lm_log_probs_elem = masked_lm_log_probs[idx, 0]  
+            masked_lm_log_probs_elem = masked_lm_log_probs[idx, 0]
             size_of_prob = len(self.ids) + 1  # len(masked_lm_log_probs_elem)
             if FLAGS.use_pop_random:
                 if self.vocab is not None:
@@ -201,7 +211,6 @@ class EvalHooks(tf.estimator.SessionRunHook):
                         item_idx.extend(sampled_ids[:])
                     item_idx = item_idx[:101]
             else:
-                # print("evaluation random -> ")
                 for _ in range(100):
                     t = np.random.randint(1, size_of_prob)
                     while t in rated:
@@ -594,6 +603,9 @@ def main(_):
             for key in sorted(result.keys()):
                 tf.compat.v1.logging.info("  %s = %s", key, str(result[key]))
                 writer.write("%s = %s\n" % (key, str(result[key])))
+        if FLAGS.save_predictions_file is not None:
+            with open(FLAGS.save_predictions_file, "w") as output:
+                output.write(json.dumps(result_predictions, indent=4))
 
 
 if __name__ == "__main__":

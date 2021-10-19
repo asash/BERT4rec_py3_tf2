@@ -187,9 +187,10 @@ def create_instances_no_force_last(all_documents, dupe_factor, instances, mask_p
 def create_instances_force_last(all_documents, max_seq_length):
     instances = []
     for user in all_documents:
+        document = all_documents[user]
+        info = [int(user.split("_")[1])]
         instances.extend(
-            create_instances_from_document_test(
-                all_documents, user, max_seq_length))
+            create_instances_from_document_test(document, info, max_seq_length))
     print("num of instance:{}".format(len(instances)))
     return instances
 
@@ -274,9 +275,8 @@ def mask_last(all_documents, user, max_seq_length):
     return instances
 
 
-def create_instances_from_document_test(all_documents, user, max_seq_length):
+def create_instances_from_document_test(document, info, max_seq_length):
     """Creates `TrainingInstance`s for a single document."""
-    document = all_documents[user]
     max_num_tokens = max_seq_length
     
     assert len(document) == 1 and len(document[0]) <= max_num_tokens
@@ -287,7 +287,6 @@ def create_instances_from_document_test(all_documents, user, max_seq_length):
     (tokens, masked_lm_positions,
      masked_lm_labels) = create_masked_lm_predictions_force_last(tokens)
 
-    info = [int(user.split("_")[1])]
     instance = TrainingInstance(
         info=info,
         tokens=tokens,
