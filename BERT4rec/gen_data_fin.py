@@ -5,8 +5,8 @@ import random
 
 import tensorflow as tf
 
-from util import *
-from vocab import *
+from .util import *
+from .vocab import *
 import pickle
 import multiprocessing
 from argparse import ArgumentParser
@@ -218,10 +218,8 @@ def create_training_instances(all_users_raw,
         pool.join()
         
         for user in all_documents:
-            instances.extend(
-                mask_last(
-                    all_documents, user, max_seq_length, short_seq_prob,
-                    masked_lm_prob, max_predictions_per_seq, vocab, rng))
+            new_instance = mask_last(all_documents, user, max_seq_length)
+            instances.extend(new_instance)
 
         print("num of instance:{}; time:{}".format(len(instances), time.process_time() - start_time))
     rng.shuffle(instances)
@@ -247,16 +245,13 @@ def create_instances_threading(all_documents, user, max_seq_length, short_seq_pr
     return instances
 
 
-def mask_last(
-        all_documents, user, max_seq_length, short_seq_prob, masked_lm_prob,
-        max_predictions_per_seq, vocab, rng):
+def mask_last(all_documents, user, max_seq_length):
     """Creates `TrainingInstance`s for a single document."""
     document = all_documents[user]
     max_num_tokens = max_seq_length
     
     instances = []
     info = [int(user.split("_")[1])]
-    vocab_items = vocab.get_items()
 
     for tokens in document:
         assert len(tokens) >= 1 and len(tokens) <= max_num_tokens
