@@ -15,20 +15,24 @@ import time
 
 random_seed = 12345
 
-parser = ArgumentParser()
 
-parser.add_argument("--signature", default="default", help="signature_name", type=str)
-parser.add_argument("--pool_size", default=10, help="multiprocesses pool size.", type=int)
-parser.add_argument("--max_seq_length", default=200, help="max sequence length", type=int)
-parser.add_argument("--max_predictions_per_seq", default=20, help="max_predictions_per_seq.", type=int)
-parser.add_argument("--masked_lm_prob", default=0.15, help="Masked LM probability.", type=float)
-parser.add_argument("--mask_prob", default=1.0, help="mask probability", type=float)
-parser.add_argument("--dupe_factor", default=10, help="Number of times to duplicate the input data (with different masks).", type=int)
-parser.add_argument("--prop_sliding_window", default=0.1, help="sliding window step size.", type=float)
-parser.add_argument("--data_dir", default='./data/', help="data dir.", type=str)
-parser.add_argument("--dataset_name", default='./ml-1m/', help="dataset name.", type=str)
+def parse_args():
+    global FLAGS
+    parser = ArgumentParser()
+    parser.add_argument("--signature", default="default", help="signature_name", type=str)
+    parser.add_argument("--pool_size", default=10, help="multiprocesses pool size.", type=int)
+    parser.add_argument("--max_seq_length", default=200, help="max sequence length", type=int)
+    parser.add_argument("--max_predictions_per_seq", default=20, help="max_predictions_per_seq.", type=int)
+    parser.add_argument("--masked_lm_prob", default=0.15, help="Masked LM probability.", type=float)
+    parser.add_argument("--mask_prob", default=1.0, help="mask probability", type=float)
+    parser.add_argument("--dupe_factor", default=10,
+                        help="Number of times to duplicate the input data (with different masks).", type=int)
+    parser.add_argument("--prop_sliding_window", default=0.1, help="sliding window step size.", type=float)
+    parser.add_argument("--data_dir", default='./data/', help="data dir.", type=str)
+    parser.add_argument("--dataset_name", default='./ml-1m/', help="dataset name.", type=str)
+    FLAGS = parser.parse_args()
 
-FLAGS = parser.parse_args()
+
 
 
 def printable_text(text):
@@ -498,4 +502,5 @@ def main():
 
 
 if __name__ == "__main__":
+    parse_args()
     main()
