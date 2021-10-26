@@ -188,9 +188,12 @@ class EvalHooks(tf.estimator.SessionRunHook):
                 predicted_items = np.argsort(scores)[-FLAGS.predictions_per_user:][::-1]
                 user_recs = []
                 for item_id in predicted_items:
-                    token = self.vocab.convert_ids_to_tokens([item_id])[0]
-                    score = scores[item_id]
-                    user_recs.append((token, float(score)))
+                    try:
+                        token = self.vocab.convert_ids_to_tokens([item_id])[0]
+                        score = scores[item_id]
+                        user_recs.append((token, float(score)))
+                    except IndexError:
+                        continue
                 result_predictions[user_id] =  user_recs
 
 
