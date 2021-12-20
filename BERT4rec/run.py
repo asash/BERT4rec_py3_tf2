@@ -122,7 +122,7 @@ parser.add_argument("--save_predictions_file", default=None, type=str, help="sav
 parser.add_argument("--predictions_per_user", default=1000, type=int, help="save predictions into file")
 FLAGS=parser.parse_args()
 
-result_predictions = {}
+output_file = None
 
 
 class EvalHooks(tf.estimator.SessionRunHook):
@@ -186,15 +186,15 @@ class EvalHooks(tf.estimator.SessionRunHook):
                 user_id = f"user_{info[idx][0]}"
                 scores = masked_lm_log_probs[idx, 0]
                 predicted_items = np.argsort(scores)[-FLAGS.predictions_per_user:][::-1]
-                user_recs = []
+                output_file.write(user_id)
                 for item_id in predicted_items:
                     try:
                         token = self.vocab.convert_ids_to_tokens([item_id])[0]
                         score = scores[item_id]
-                        user_recs.append((token, float(score)))
+                        output_file.write(f";{token}:{score}")
                     except IndexError:
                         continue
-                result_predictions[user_id] =  user_recs
+                output_file.write("\n")
 
 
         for idx in range(len(input_ids)):
@@ -606,12 +606,12 @@ def main(_):
             for key in sorted(result.keys()):
                 tf.compat.v1.logging.info("  %s = %s", key, str(result[key]))
                 writer.write("%s = %s\n" % (key, str(result[key])))
-        if FLAGS.save_predictions_file is not None:
-            with open(FLAGS.save_predictions_file, "w") as output:
-                output.write(json.dumps(result_predictions, indent=4))
 
 
 if __name__ == "__main__":
+    if FLAGS.save_predictions_file is not None:
+        output_file = open(FLAGS.save_predictions_file, "w")
+
     physical_devices = tf.config.list_physical_devices('GPU')
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
     tf.compat.v1.app.run()
