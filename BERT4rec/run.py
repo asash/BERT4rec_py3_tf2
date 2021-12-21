@@ -20,6 +20,10 @@ from __future__ import print_function
 
 import json
 import os
+import time
+
+from tensorflow.python.training.session_run_hook import SessionRunHook
+
 import modeling
 import optimization
 import tensorflow as tf
@@ -119,7 +123,8 @@ parser.add_argument("--use_pop_random", default=True, type=bool, help="use pop r
 parser.add_argument("--vocab_filename", default=None, type=str, help="vocab filename")
 parser.add_argument("--user_history_filename", default=None, type=str, help="user history filename", required=True)
 parser.add_argument("--save_predictions_file", default=None, type=str, help="save predictions into file")
-parser.add_argument("--predictions_per_user", default=1000, type=int, help="save predictions into file")
+parser.add_argument("--predictions_per_user", default=1000, type=int, help="number of predictions to save into file")
+parser.add_argument("--training-time-limit-seconds", default=None, type=int, help="training will stop after N seconds")
 FLAGS=parser.parse_args()
 
 output_file = None
@@ -240,6 +245,23 @@ class EvalHooks(tf.estimator.SessionRunHook):
                 self.hit_10 += 1
 
             self.ap += 1.0 / (rank + 1)
+
+class TrainHooks(tf.estimator.SessionRunHook):
+    def __init__(self, time_limit):
+        self.time_limit = time_limit
+
+    def begin(self):
+        self.training_start_time = time.time()
+
+    def after_run(self,
+                run_context,  # pylint: disable=unused-argument
+                run_values):
+        training_time = time.time() - self.training_start_time
+        if self.time_limit is not None and training_time >= self.time_limit:
+            tf.compat.v1.logging.info(f"time limit: stopping training after {training_time} seconds")
+            raise StopIteration()
+
+
 
 
 def model_fn_builder(bert_config, init_checkpoint, learning_rate,
@@ -579,7 +601,8 @@ def main(_):
             max_predictions_per_seq=FLAGS.max_predictions_per_seq,
             is_training=True)
         estimator.train(
-            input_fn=train_input_fn, max_steps=FLAGS.num_train_steps)
+            input_fn=train_input_fn, max_steps=FLAGS.num_train_steps,
+                     hooks=[TrainHooks(FLAGS.training_time_limit_seconds)])
 
     if FLAGS.do_eval:
         tf.compat.v1.logging.info("***** Running evaluation *****")
