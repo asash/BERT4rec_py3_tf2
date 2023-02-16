@@ -84,9 +84,16 @@ json in `bert_train` like `bert_config_ml-1m_64.json`
 ```
 
 
-## Reference
+## References
 
 ```TeX
+@inproceedings{petrov2022replicability,
+  title={A Systematic Review and Replicability Study of BERT4Rec for Sequential Recommendation},
+  author={Petrov, Aleksandr and Macdonald, Craig},
+  booktitle={Sixteen ACM Conference on Recommender Systems},
+  year={2022}
+}
+
 @inproceedings{Sun:2019:BSR:3357384.3357895,
  author = {Sun, Fei and Liu, Jun and Wu, Jian and Pei, Changhua and Lin, Xiao and Ou, Wenwu and Jiang, Peng},
  title = {BERT4Rec: Sequential Recommendation with Bidirectional Encoder Representations from Transformer},
