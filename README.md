@@ -1,6 +1,18 @@
 # BERT4Rec
 This is a version of [https://github.com/FeiSun/BERT4Rec](https://github.com/FeiSun/BERT4Rec) ported to Python3 and Tensorflow2. Tested with python3.9 and tesorflow 2.6.0, but likely to work with other python3 and tensorflow 2 versions
 
+If you use this version of the code for your research, please consider citing the [reproducibility paper](https://arxiv.org/pdf/2207.07483.pdf) (the port was done as a part of the reproducibility work): 
+
+```
+@inproceedings{petrov2022replicability,
+  title={A Systematic Review and Replicability Study of BERT4Rec for Sequential Recommendation},
+  author={Petrov, Aleksandr and Macdonald, Craig},
+  booktitle={Sixteen ACM Conference on Recommender Systems},
+  year={2022}
+}
+```
+I also recommend to read this paper, and in particular the section regarding the training time required for BERT4Rec convergence. 
+
 
 ## Usage
 
