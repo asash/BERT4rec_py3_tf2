@@ -13,6 +13,8 @@ If you use this version of the code for your research, please consider citing th
 ```
 I also recommend to read this paper, and in particular the section regarding the training time required for BERT4Rec convergence. 
 
+Also, consider our more efficient implementation based on Hugging Face trarsformers (https://github.com/asash/bert4rec_repro)
+
 
 ## Usage
 
